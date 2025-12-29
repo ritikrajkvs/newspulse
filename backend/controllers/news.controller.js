@@ -1,55 +1,48 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
-import News from "../models/news.model.js"; 
-import { analyzeSentiment } from "../utils/gemini.js"; // Standardized .js extension for Render
+import News from "../models/news.model.js";
+import { analyzeSentiment } from "../utils/gemini.js";
 
-export const getNews = async (req, res) => {
-  try {
-    const { sentiment } = req.query;
-    const query = sentiment && sentiment !== "" ? { sentiment } : {};
-    const news = await News.find(query).sort({ createdAt: -1 }).limit(20);
-    res.status(200).json(news);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+const NEWS_TOPICS = [
+  "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB", // Tech
+  "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZd0p6Z3pSbkp5ZVdReEVnUnBiU2dBUAFQAQ", // Business
+  "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4d0p6Z3pSbkp5ZVdReEVnUnBiU2dBUAFQAQ"  // World
+];
 
 export const scrapeNews = async (req, res) => {
   try {
-    const { data } = await axios.get("https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB", {
-       headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    const $ = cheerio.load(data);
-    const articles = [];
+    let allArticles = [];
 
-    $('article').slice(0, 8).each((i, el) => {
-      const title = $(el).find('h3').text() || $(el).find('a').text();
-      let link = $(el).find('a').attr('href');
-      if (link && link.startsWith('./')) link = "https://news.google.com" + link.substring(1);
+    // Loop through multiple topics for diversity
+    for (const topicId of NEWS_TOPICS) {
+      const url = `https://news.google.com/topics/${topicId}`;
+      const { data } = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const $ = cheerio.load(data);
       
-      if (title && link) {
-        articles.push({ title, link, source: "Google News" });
-      }
-    });
+      $('article').slice(0, 5).each((i, el) => {
+        const title = $(el).find('h3').text();
+        let link = $(el).find('a').attr('href');
+        if (link?.startsWith('./')) link = "https://news.google.com" + link.substring(1);
+        if (title && link) allArticles.push({ title, link, source: "Google News" });
+      });
+    }
 
-    const savedArticles = [];
-    for (const article of articles) {
+    const savedCount = { positive: 0, negative: 0, neutral: 0 };
+    
+    for (const article of allArticles) {
       const exists = await News.findOne({ title: article.title });
       if (!exists) {
-        // This fulfills the "AI sentiment integration" requirement
         const sentiment = await analyzeSentiment(article.title);
         const newNews = new News({ ...article, sentiment });
         await newNews.save();
-        savedArticles.push(newNews);
+        savedCount[sentiment]++;
       }
     }
 
     res.status(200).json({ 
-      message: `Scraped ${articles.length} articles. Added ${savedArticles.length} new ones.`,
-      data: savedArticles 
+      message: `Scrape complete. Added: Pos(${savedCount.positive}), Neg(${savedCount.negative}), Neu(${savedCount.neutral})` 
     });
   } catch (error) {
-    console.error("Scrape Error:", error);
-    res.status(500).json({ error: "Scraping failed." });
+    res.status(500).json({ error: "Multi-source scraping failed." });
   }
 };
