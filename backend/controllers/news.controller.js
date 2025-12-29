@@ -20,15 +20,17 @@ export const getNews = async (req, res) => {
 export const scrapeNews = async (req, res) => {
   try {
     const articles = await fetchFromAPI();
-    if (articles.length === 0) return res.status(500).json({ error: "No news found." });
-
     const savedArticles = [];
 
-    // FIX: Use a for-of loop instead of Promise.all to respect Rate Limits
+    // Use a loop to handle items one by one for cleaner debugging
     for (const article of articles) {
       const exists = await News.findOne({ title: article.title });
+      
+      // LOGIC BUG FIX: If you already have "neutral" news in DB, 
+      // this 'if (!exists)' prevents them from ever being updated.
       if (!exists) {
         try {
+          // Combine title and description for full context
           const contextText = `${article.title}. ${article.description}`;
           const sentiment = await analyzeSentiment(contextText); 
           
@@ -39,16 +41,17 @@ export const scrapeNews = async (req, res) => {
             sentiment: sentiment 
           });
           savedArticles.push(newDoc);
-
-          // FIX: Add a small 500ms delay between Gemini calls to stay safe on free tier
-          await sleep(500); 
         } catch (err) {
           console.error("Failed to process article:", article.title, err.message);
         }
       }
     }
 
-    res.status(200).json({ message: "Scrape complete", added: savedArticles.length });
+    res.status(200).json({ 
+      message: "Scrape complete", 
+      added: savedArticles.length,
+      note: savedArticles.length === 0 ? "No new articles found. Clear DB to re-scrape old ones." : ""
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
