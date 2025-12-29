@@ -1,5 +1,4 @@
-
-import News from "../models/News.js";
+import News from "../models/news.model.js"; // Corrected from News.js
 import { scrapeNews } from "./scraper.service.js";
 import { analyzeText } from "./gemini.service.js";
 
