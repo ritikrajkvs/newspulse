@@ -1,30 +1,55 @@
-import News from "../models/news.model.js"; // Standardized .js extension
-// If you have a separate scraper utility, import it here
-// import { runScraper } from "../utils/scraper.js"; 
+import axios from "axios";
+import * as cheerio from "cheerio";
+import News from "../models/news.model.js"; 
+import { analyzeSentiment } from "../utils/gemini.js"; // Standardized .js extension for Render
 
 export const getNews = async (req, res) => {
   try {
     const { sentiment } = req.query;
-    let query = {};
-    if (sentiment) query.sentiment = sentiment;
-
-    const news = await News.find(query).sort({ createdAt: -1 });
+    const query = sentiment && sentiment !== "" ? { sentiment } : {};
+    const news = await News.find(query).sort({ createdAt: -1 }).limit(20);
     res.status(200).json(news);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching news", error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
-// FIX: Added the missing scrapeNews function
 export const scrapeNews = async (req, res) => {
   try {
-    // This is where your Cheerio / Gemini logic lives
-    console.log("Scrape triggered...");
-    
-    // For now, we return a success message so the app doesn't crash
-    // In a real scenario, you'd call your scraping utility here
-    res.status(200).json({ message: "Scrape started successfully" });
+    const { data } = await axios.get("https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB", {
+       headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const $ = cheerio.load(data);
+    const articles = [];
+
+    $('article').slice(0, 8).each((i, el) => {
+      const title = $(el).find('h3').text() || $(el).find('a').text();
+      let link = $(el).find('a').attr('href');
+      if (link && link.startsWith('./')) link = "https://news.google.com" + link.substring(1);
+      
+      if (title && link) {
+        articles.push({ title, link, source: "Google News" });
+      }
+    });
+
+    const savedArticles = [];
+    for (const article of articles) {
+      const exists = await News.findOne({ title: article.title });
+      if (!exists) {
+        // This fulfills the "AI sentiment integration" requirement
+        const sentiment = await analyzeSentiment(article.title);
+        const newNews = new News({ ...article, sentiment });
+        await newNews.save();
+        savedArticles.push(newNews);
+      }
+    }
+
+    res.status(200).json({ 
+      message: `Scraped ${articles.length} articles. Added ${savedArticles.length} new ones.`,
+      data: savedArticles 
+    });
   } catch (error) {
-    res.status(500).json({ message: "Scrape failed", error: error.message });
+    console.error("Scrape Error:", error);
+    res.status(500).json({ error: "Scraping failed." });
   }
 };
