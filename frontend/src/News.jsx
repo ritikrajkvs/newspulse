@@ -79,11 +79,12 @@ export default function News() {
       {loading && <p>Loading articles...</p>}
 
       {!loading && news.length === 0 && (
-        <div style={{ textAlign: "center", padding: "40px", border: "1px dashed #ccc" }}>
-          <p>No news found for <strong>{sentiment || "any"}</strong> sentiment.</p>
-          <button onClick={() => setSentiment("")}>Clear Filter</button>
-        </div>
-      )}
+  <div className="empty-state">
+    <p>We couldn't find any <strong>{sentiment}</strong> news right now.</p>
+    <button onClick={handleFetchLatest}>Scrape More Categories</button>
+    <button onClick={() => setSentiment("")}>Show All News</button>
+  </div>
+)}
 
       {news.map(n => (
         <div key={n._id} style={{ 
