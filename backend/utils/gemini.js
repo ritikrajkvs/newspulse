@@ -4,19 +4,17 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
 export const analyzeSentiment = async (title) => {
   try {
     const prompt = `
-      Classify the sentiment of this news headline into: positive, negative, or neutral.
+      Classify the sentiment of this headline as: positive, negative, or neutral.
       
       EXAMPLES:
-      - "NVIDIA shares surge 10% after record earnings" -> positive
-      - "Google announces major breakthrough in quantum computing" -> positive
-      - "Meta to lay off 5,000 employees in restructuring" -> negative
-      - "Cybersecurity breach exposes millions of user records" -> negative
-      - "Apple releases iOS 18.2 update with minor bug fixes" -> neutral
-      - "The weather in New York is expected to be sunny" -> neutral
+      - "Stock market hits all-time high" -> positive
+      - "Company XYZ reports record profits" -> positive
+      - "Major layoffs announced at tech giant" -> negative
+      - "Cyberattack shuts down regional power grid" -> negative
+      - "Local council meets to discuss park bench repairs" -> neutral
 
       Headline: "${title}"
       Response (one word only):`;
