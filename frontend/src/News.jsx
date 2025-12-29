@@ -1,84 +1,110 @@
 import { useEffect, useState } from "react";
-import { fetchNews, scrapeNews } from "./api";
+import { fetchNews, scrapeNews, wakeUpServer } from "./api";
 
 export default function News() {
   const [news, setNews] = useState([]);
   const [sentiment, setSentiment] = useState("");
-  // FIX 1: Corrected the state setter name from 'SF' to 'setLoading'
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
+  const [isWakingUp, setIsWakingUp] = useState(true);
 
-  // 2. Extract fetching logic into a reusable function
-  const loadNewsData = () => {
-    setLoading(true); // Start loading UI
-    fetchNews({ sentiment })
-      .then(res => {
-        setNews(res.data);
+  // 1. Wake up the server as soon as the component mounts
+  useEffect(() => {
+    wakeUpServer()
+      .then(() => {
+        setIsWakingUp(false);
+        loadNewsData();
       })
-      .catch(err => {
-        console.error("Error fetching news:", err);
-      })
-      .finally(() => {
-        setLoading(false); // Stop loading UI
-      });
+      .catch(() => setIsWakingUp(false));
+  }, []);
+
+  const loadNewsData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchNews({ sentiment });
+      setNews(res.data);
+    } catch (err) {
+      console.error("Error fetching news:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 3. Initial load and filter change listener
+  // 2. Trigger loadNewsData when sentiment changes
   useEffect(() => {
-    loadNewsData();
+    if (!isWakingUp) loadNewsData();
   }, [sentiment]);
 
-  // 4. Create a new handler for the button
+  // 3. Robust Fetch Handler
   const handleFetchLatest = async () => {
     setLoading(true);
     try {
-      await scrapeNews(); // Trigger the backend scrape
-      loadNewsData();     // Refresh the list immediately after success
+      // Step 1: Trigger the scrape on backend
+      await scrapeNews(); 
+      // Step 2: Short delay to let DB process the new records
+      setTimeout(() => loadNewsData(), 1000); 
     } catch (error) {
-      console.error("Scrape failed:", error);
-      alert("Failed to scrape new articles.");
-      setLoading(false); // Ensure loading stops on error
+      alert("Server is still waking up or processing. Please wait 15 seconds and try again.");
+    } finally {
+      setLoading(false);
     }
-    // Note: setLoading(false) is called inside loadNewsData() above
   };
 
+  if (isWakingUp) return <div style={{padding: 20}}>Waking up AI News Server... Please wait.</div>;
+
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
       <h2>AI News Aggregator</h2>
 
-      {/* 5. UI reflects the loading state */}
-      <button onClick={handleFetchLatest} disabled={loading}>
-        {loading ? "Fetching..." : "Fetch Latest News"}
-      </button>
+      <div style={{ marginBottom: "20px" }}>
+        <button 
+          onClick={handleFetchLatest} 
+          disabled={loading}
+          style={{ padding: "10px 20px", cursor: loading ? "not-allowed" : "pointer" }}
+        >
+          {loading ? "Processing AI..." : "Fetch Latest News"}
+        </button>
 
-      <select 
-        onChange={e => setSentiment(e.target.value)} 
-        value={sentiment} 
-        disabled={loading}
-        style={{ marginLeft: '10px' }}
-      >
-        <option value="">All</option>
-        <option value="positive">Positive</option>
-        <option value="neutral">Neutral</option>
-        <option value="negative">Negative</option>
-      </select>
+        <select 
+          onChange={e => setSentiment(e.target.value)} 
+          value={sentiment}
+          style={{ marginLeft: "10px", padding: "10px" }}
+        >
+          <option value="">All Sentiments</option>
+          <option value="positive">Positive</option>
+          <option value="neutral">Neutral</option>
+          <option value="negative">Negative</option>
+        </select>
+      </div>
 
-      {/* Show a message if it's currently loading */}
-      {loading && <p>Connecting to AI News Server... Please wait.</p>}
+      {loading && <p>Loading articles...</p>}
 
-      {!loading && news.length === 0 && <p>No news found. Click "Fetch Latest News".</p>}
+      {!loading && news.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px", border: "1px dashed #ccc" }}>
+          <p>No news found for <strong>{sentiment || "any"}</strong> sentiment.</p>
+          <button onClick={() => setSentiment("")}>Clear Filter</button>
+        </div>
+      )}
 
       {news.map(n => (
-        <div key={n._id} style={{ border: "1px solid #ddd", margin: "10px 0", padding: 10, borderRadius: "5px" }}>
-          <h4>{n.title}</h4>
-          <p>Source: {n.source}</p>
-          <b style={{
-            color:
-              n.sentiment === "positive" ? "green" :
-              n.sentiment === "negative" ? "red" : "gray",
+        <div key={n._id} style={{ 
+          border: "1px solid #ddd", 
+          marginBottom: "15px", 
+          padding: "15px", 
+          borderRadius: "8px",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+        }}>
+          <h3 style={{ marginTop: 0 }}>{n.title}</h3>
+          <p style={{ color: "#666" }}>Source: {n.source}</p>
+          <span style={{
+            padding: "4px 8px",
+            borderRadius: "4px",
+            backgroundColor: n.sentiment === "positive" ? "#e6fffa" : n.sentiment === "negative" ? "#fff5f5" : "#f7fafc",
+            color: n.sentiment === "positive" ? "#2c7a7b" : n.sentiment === "negative" ? "#c53030" : "#4a5568",
+            fontWeight: "bold",
             textTransform: "capitalize"
           }}>
             {n.sentiment}
-          </b>
+          </span>
         </div>
       ))}
     </div>
