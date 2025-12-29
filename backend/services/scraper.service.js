@@ -3,29 +3,24 @@ import * as cheerio from "cheerio";
 
 export async function scrapeNews() {
   try {
-    const { data } = await axios.get("https://news.ycombinator.com/");
+    const { data } = await axios.get("https://news.ycombinator.com/", {
+       headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
     const $ = cheerio.load(data);
-
     const articles = [];
 
-    // FIX: Updated selector for 2025 HackerNews layout
+    // Correct selector for current HackerNews layout
     $(".titleline > a").each((i, el) => {
-      const title = $(el).text();
-      const url = $(el).attr("href");
-
-      if (title && url) {
+      if (i < 10) { // Limit to 10 for speed
         articles.push({
-          title,
-          description: title,
-          url: url.startsWith("http") ? url : `https://news.ycombinator.com/${url}`,
+          title: $(el).text(),
+          url: $(el).attr("href"),
           source: "HackerNews"
         });
       }
     });
-
-    return articles.slice(0, 10);
+    return articles;
   } catch (error) {
-    console.error("Scraper Error:", error.message);
-    return []; // Return empty array instead of crashing
+    return [];
   }
 }
