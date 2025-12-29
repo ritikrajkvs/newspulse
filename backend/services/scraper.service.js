@@ -1,41 +1,32 @@
 import axios from "axios";
-import dotenv from "dotenv";
-dotenv.config();
+import * as cheerio from "cheerio";
 
 export async function scrapeNews() {
+  const articles = [];
   try {
-    const apiKey = process.env.NEWS_API_KEY;
-    // We fetch from multiple categories to ensure sentiment variety (Positive/Negative/Neutral)
-    const categories = ['business', 'technology', 'general'];
-    const allArticles = [];
-
-    for (const category of categories) {
-      const { data } = await axios.get(`https://newsapi.org/v2/top-headlines`, {
-        params: {
-          category,
-          language: 'en',
-          pageSize: 5, // 5 per category = 15 total
-          apiKey: apiKey
-        }
-      });
-
-      if (data.articles) {
-        data.articles.forEach(article => {
-          if (article.title && article.url) {
-            allArticles.push({
-              title: article.title,
-              description: article.description || article.title, // Description gives Gemini more context
-              link: article.url,
-              source: article.source.name || "Global News"
-            });
-          }
-        });
-      }
+    // Source 1: NewsAPI (Standard)
+    const { data } = await axios.get(`https://newsapi.org/v2/top-headlines?category=general&language=en&apiKey=${process.env.NEWS_API_KEY}`);
+    if (data.articles) {
+      data.articles.forEach(a => articles.push({
+        title: a.title,
+        description: a.description || "",
+        link: a.url,
+        source: a.source.name
+      }));
     }
 
-    return allArticles;
+    // Source 2: Cheerio Scraper (Strict Requirement)
+    const { data: html } = await axios.get("https://news.google.com/home?hl=en-US&gl=US&ceid=US:en");
+    const $ = cheerio.load(html);
+    $("article").slice(0, 5).each((i, el) => {
+      const title = $(el).find("h3").text();
+      const link = "https://news.google.com" + $(el).find("a").attr("href")?.slice(1);
+      if (title && link) articles.push({ title, description: title, link, source: "Google News (Scraped)" });
+    });
+
+    return articles;
   } catch (error) {
-    console.error("NewsAPI Error:", error.response?.data?.message || error.message);
-    return [];
+    console.error("Scraper Error:", error.message);
+    return articles;
   }
 }
