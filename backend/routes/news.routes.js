@@ -1,10 +1,9 @@
-
 import express from "express";
-import { getNews, scrapeNow } from "../controllers/news.controller.js";
-
 const router = express.Router();
+// Match the names: getNews and scrapeNews
+import { getNews, scrapeNews } from "../controllers/news.controller.js";
 
 router.get("/", getNews);
-router.post("/scrape", scrapeNow);
+router.post("/scrape", scrapeNews);
 
 export default router;
