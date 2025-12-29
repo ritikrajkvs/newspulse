@@ -1,6 +1,7 @@
 import express from "express";
 const router = express.Router();
-// Match the names: getNews and scrapeNews
+
+// Ensure the name and the .js extension are correct for Render
 import { getNews, scrapeNews } from "../controllers/news.controller.js";
 
 router.get("/", getNews);
