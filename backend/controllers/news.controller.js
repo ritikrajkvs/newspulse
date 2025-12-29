@@ -1,11 +1,12 @@
 import News from "../models/news.model.js";
 import { analyzeSentiment } from "../utils/gemini.js";
-import { scrapeNews as performScrape } from "../services/scraper.service.js";
+import axios from "axios";
+import * as cheerio from "cheerio";
 
 export const getNews = async (req, res) => {
   try {
     const { sentiment } = req.query;
-    const query = sentiment ? { sentiment } : {};
+    const query = sentiment && sentiment !== "" ? { sentiment } : {};
     const news = await News.find(query).sort({ createdAt: -1 }).limit(24);
     res.status(200).json(news);
   } catch (error) {
@@ -15,27 +16,36 @@ export const getNews = async (req, res) => {
 
 export const scrapeNews = async (req, res) => {
   try {
-    // Use the stable HackerNews scraper from your service
-    const articles = await performScrape(); 
-    
-    if (!articles || articles.length === 0) {
-      return res.status(404).json({ message: "No new articles found to scrape." });
-    }
+    // 1. Scrape articles from Google News
+    const { data } = await axios.get("https://news.google.com/home", {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    const $ = cheerio.load(data);
+    const scrapedArticles = [];
 
+    $('article h3').slice(0, 12).each((i, el) => {
+      const title = $(el).text();
+      let link = $(el).find('a').attr('href') || $(el).closest('article').find('a').attr('href');
+      if (link?.startsWith('./')) link = "https://news.google.com" + link.substring(1);
+      
+      if (title && link) {
+        scrapedArticles.push({ title, link, source: "Google News" });
+      }
+    });
+
+    // 2. Process AI sentiment in parallel to avoid timeouts
     const savedArticles = [];
-
-    // Process articles in parallel to avoid timeouts
-    await Promise.all(articles.map(async (article) => {
+    await Promise.all(scrapedArticles.map(async (article) => {
       const exists = await News.findOne({ title: article.title });
       if (!exists) {
-        const sentiment = await analyzeSentiment(article.title);
-        const newArticle = await News.create({
-          title: article.title,
-          link: article.url, // Ensure link mapping is correct
-          source: article.source,
-          sentiment: sentiment
-        });
-        savedArticles.push(newArticle);
+        try {
+          // If Gemini fails, it will caught here instead of timing out the whole request
+          const sentiment = await analyzeSentiment(article.title);
+          const newDoc = await News.create({ ...article, sentiment });
+          savedArticles.push(newDoc);
+        } catch (err) {
+          console.error(`AI Error for "${article.title}":`, err.message);
+        }
       }
     }));
 
@@ -44,7 +54,7 @@ export const scrapeNews = async (req, res) => {
       added: savedArticles.length 
     });
   } catch (error) {
-    console.error("Scrape Error:", error);
-    res.status(500).json({ error: "Failed to scrape news or analyze sentiment." });
+    console.error("Scrape Route Error:", error);
+    res.status(500).json({ error: error.message });
   }
 };
