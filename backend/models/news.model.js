@@ -1,15 +1,12 @@
-
 import mongoose from "mongoose";
 
-const NewsSchema = new mongoose.Schema({
-  title: String,
-  description: String,
-  url: { type: String, unique: true },
-  source: String,
-  category: String,
-  sentiment: String,
-  sentimentScore: Number,
+const newsSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  source: { type: String },
+  sentiment: { type: String, enum: ["positive", "neutral", "negative"] },
+  link: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.model("News", NewsSchema);
+const News = mongoose.model("News", newsSchema);
+export default News;
