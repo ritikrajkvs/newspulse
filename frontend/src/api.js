@@ -1,10 +1,14 @@
 import axios from "axios";
 
-// usage of the live Render Backend URL
+// Your verified live Render URL
 const BASE_URL = "https://newspulse-fvkn.onrender.com";
 
-export const fetchNews = (params) =>
+export const fetchNews = (params) => 
   axios.get(`${BASE_URL}/api/news`, { params });
 
-export const scrapeNews = () =>
+export const scrapeNews = () => 
   axios.post(`${BASE_URL}/api/news/scrape`);
+
+// Add a "ping" function to wake up Render on page load
+export const wakeUpServer = () => 
+  axios.get(`${BASE_URL}/`);
