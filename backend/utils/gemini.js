@@ -1,38 +1,34 @@
-// backend/utils/gemini.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// Use gemini-1.5-flash for faster, better results
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 export const analyzeSentiment = async (text) => {
   try {
     const prompt = `
-      Analyze the sentiment of this news headline/description. 
-      Classify it as either "positive", "negative", or "neutral".
-
-      Guidelines:
-      - POSITIVE: Economic growth, breakthroughs, successful events, optimistic outcomes.
-      - NEGATIVE: Disasters, deaths, layoffs, market crashes, conflicts, scandals.
-      - NEUTRAL: General announcements, routine reports, or facts with no clear emotional weight.
-
-      Input: "${text}"
+      You are a sentiment analysis expert. Classify the impact of this news as "positive", "negative", or "neutral".
       
-      Response: Return only ONE lowercase word ("positive", "negative", or "neutral").`;
+      Criteria:
+      - POSITIVE: Economic growth, breakthroughs, mergers, expansion, or optimistic events.
+      - NEGATIVE: Layoffs, crashes, deaths, scandals, conflicts, or losses.
+      - NEUTRAL: Routine reports, administrative changes, or facts with no clear impact.
+
+      Article: "${text}"
+      
+      Return ONLY one word: positive, negative, or neutral.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const resultText = response.text().toLowerCase().trim();
     
-    // Check if the output actually contains the keywords
-    if (resultText.includes("positive")) return "positive";
-    if (resultText.includes("negative")) return "negative";
+    // Logic Fix: Use regex word boundaries to prevent "not positive" matching "positive"
+    if (/\bpositive\b/.test(resultText)) return "positive";
+    if (/\bnegative\b/.test(resultText)) return "negative";
     return "neutral";
   } catch (error) {
-    // Log the actual error to your terminal so you can see if it's a Rate Limit (429)
-    console.error("Gemini API Error:", error.message);
+    console.error("Gemini Logic Error:", error.message);
     return "neutral"; 
   }
 };
