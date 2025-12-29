@@ -8,26 +8,24 @@ export async function scrapeNews() {
 
     const articles = [];
 
-    // Updated selector for 2024/2025 Hacker News structure
+    // FIX: Updated selector for 2025 HackerNews layout
     $(".titleline > a").each((i, el) => {
       const title = $(el).text();
       const url = $(el).attr("href");
-      
-      // extensive checks to ensure we have valid data
+
       if (title && url) {
         articles.push({
-          title: title,
-          description: title, // HN doesn't have descriptions on the main page
+          title,
+          description: title,
           url: url.startsWith("http") ? url : `https://news.ycombinator.com/${url}`,
           source: "HackerNews"
         });
       }
     });
 
-    console.log(`Scraped ${articles.length} articles.`);
     return articles.slice(0, 10);
   } catch (error) {
-    console.error("Scraping Error:", error);
-    return []; // Return empty array so pipeline doesn't crash
+    console.error("Scraper Error:", error.message);
+    return []; // Return empty array instead of crashing
   }
 }
