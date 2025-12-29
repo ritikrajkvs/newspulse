@@ -1,29 +1,19 @@
-import News from "../models/News.js";
-import { runPipeline } from "../services/pipeline.service.js";
+import News from "../models/news.model.js";
 
 export const getNews = async (req, res) => {
   try {
-    const { sentiment, category } = req.query;
-    let filter = {};
-    if (sentiment) filter.sentiment = sentiment;
-    if (category) filter.category = category;
+    const { sentiment } = req.query;
+    // Build a flexible query object
+    let query = {};
+    if (sentiment && sentiment !== "") {
+      query.sentiment = sentiment;
+    }
 
-    const news = await News.find(filter).sort({ createdAt: -1 });
-    res.json(news);
-  } catch (error) {
-    console.error("Error in getNews:", error);
-    res.status(500).json({ message: "Failed to fetch news", error: error.message });
-  }
-};
+    const news = await News.find(query).sort({ createdAt: -1 });
 
-export const scrapeNow = async (req, res) => {
-  try {
-    console.log("Starting scraping pipeline...");
-    await runPipeline();
-    console.log("Scraping completed successfully.");
-    res.json({ message: "Scraping completed" });
+    // Ensure we always return an array, even if empty
+    res.status(200).json(news);
   } catch (error) {
-    console.error("Error in scrapeNow:", error);
-    res.status(500).json({ message: "Scraping failed", error: error.message });
+    res.status(500).json({ message: "Error fetching news", error: error.message });
   }
 };
