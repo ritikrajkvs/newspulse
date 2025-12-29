@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Using relative paths allows the Vite proxy to handle the routing
+// FIX: Use relative paths
 export const fetchNews = (params) =>
   axios.get("/api/news", { params });
 
