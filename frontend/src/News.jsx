@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchNews, scrapeNews, wakeUpServer } from "./api";
+import "./App.css";
 
 export default function News() {
   const [news, setNews] = useState([]);
@@ -7,7 +8,6 @@ export default function News() {
   const [loading, setLoading] = useState(false);
   const [isWakingUp, setIsWakingUp] = useState(true);
 
-  // 1. Wake up the server as soon as the component mounts
   useEffect(() => {
     wakeUpServer()
       .then(() => {
@@ -23,91 +23,94 @@ export default function News() {
       const res = await fetchNews({ sentiment });
       setNews(res.data);
     } catch (err) {
-      console.error("Error fetching news:", err);
+      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Trigger loadNewsData when sentiment changes
   useEffect(() => {
     if (!isWakingUp) loadNewsData();
   }, [sentiment]);
 
-  // 3. Robust Fetch Handler
-  const handleFetchLatest = async () => {
+  const handleRefresh = async () => {
     setLoading(true);
     try {
-      // Step 1: Trigger the scrape on backend
       await scrapeNews(); 
-      // Step 2: Short delay to let DB process the new records
       setTimeout(() => loadNewsData(), 1000); 
     } catch (error) {
-      alert("Server is still waking up or processing. Please wait 15 seconds and try again.");
+      alert("AI is still processing latest trends. Please wait.");
     } finally {
       setLoading(false);
     }
   };
 
-  if (isWakingUp) return <div style={{padding: 20}}>Waking up AI News Server... Please wait.</div>;
+  if (isWakingUp) return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", justifyContent: "center", alignItems: "center" }}>
+      <div className="spinner"></div>
+      <p style={{ marginTop: "1rem", color: "#64748b", fontWeight: 500 }}>Initializing AI Intelligence...</p>
+    </div>
+  );
 
   return (
-    <div style={{ padding: "20px", maxWidth: "800px", margin: "auto" }}>
-      <h2>AI News Aggregator</h2>
-
-      <div style={{ marginBottom: "20px" }}>
-        <button 
-          onClick={handleFetchLatest} 
-          disabled={loading}
-          style={{ padding: "10px 20px", cursor: loading ? "not-allowed" : "pointer" }}
-        >
-          {loading ? "Processing AI..." : "Fetch Latest News"}
-        </button>
-
-        <select 
-          onChange={e => setSentiment(e.target.value)} 
-          value={sentiment}
-          style={{ marginLeft: "10px", padding: "10px" }}
-        >
-          <option value="">All Sentiments</option>
-          <option value="positive">Positive</option>
-          <option value="neutral">Neutral</option>
-          <option value="negative">Negative</option>
-        </select>
-      </div>
-
-      {loading && <p>Loading articles...</p>}
-
-      {!loading && news.length === 0 && (
-  <div className="empty-state">
-    <p>We couldn't find any <strong>{sentiment}</strong> news right now.</p>
-    <button onClick={handleFetchLatest}>Scrape More Categories</button>
-    <button onClick={() => setSentiment("")}>Show All News</button>
-  </div>
-)}
-
-      {news.map(n => (
-        <div key={n._id} style={{ 
-          border: "1px solid #ddd", 
-          marginBottom: "15px", 
-          padding: "15px", 
-          borderRadius: "8px",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
-        }}>
-          <h3 style={{ marginTop: 0 }}>{n.title}</h3>
-          <p style={{ color: "#666" }}>Source: {n.source}</p>
-          <span style={{
-            padding: "4px 8px",
-            borderRadius: "4px",
-            backgroundColor: n.sentiment === "positive" ? "#e6fffa" : n.sentiment === "negative" ? "#fff5f5" : "#f7fafc",
-            color: n.sentiment === "positive" ? "#2c7a7b" : n.sentiment === "negative" ? "#c53030" : "#4a5568",
-            fontWeight: "bold",
-            textTransform: "capitalize"
-          }}>
-            {n.sentiment}
-          </span>
+    <div style={{ minHeight: "100vh" }}>
+      {/* Header */}
+      <nav className="sticky-header">
+        <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0, letterSpacing: "-0.03em" }}>
+            NewsPulse<span style={{ color: "var(--primary)" }}>.AI</span>
+          </h1>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button onClick={handleRefresh} disabled={loading} style={{ padding: "8px 16px", background: "var(--primary)", color: "white", border: "none", borderRadius: "8px", fontWeight: 600, cursor: "pointer" }}>
+              {loading ? "Analyzing..." : "Refresh Feed"}
+            </button>
+            <select value={sentiment} onChange={(e) => setSentiment(e.target.value)} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", fontWeight: 500 }}>
+              <option value="">All Moods</option>
+              <option value="positive">Positive</option>
+              <option value="neutral">Neutral</option>
+              <option value="negative">Negative</option>
+            </select>
+          </div>
         </div>
-      ))}
+      </nav>
+
+      {/* Main Content */}
+      <main style={{ maxWidth: "1200px", margin: "40px auto", padding: "0 20px" }}>
+        <div style={{ marginBottom: "30px" }}>
+          <h2 style={{ fontSize: "2rem", fontWeight: 700, marginBottom: "8px" }}>Top Global Insights</h2>
+          <p style={{ color: "var(--text-muted)" }}>AI-curated headlines with real-time sentiment analysis.</p>
+        </div>
+
+        {loading && <div style={{ textAlign: "center", padding: "50px" }}>Updating articles...</div>}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(350px, 1fr))", gap: "24px" }}>
+          {news.map((item) => (
+            <div key={item._id} className="news-card" style={{ background: "white", borderRadius: "16px", padding: "24px", display: "flex", flexDirection: "column" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>{item.source}</span>
+                <span style={{
+                  padding: "4px 10px", borderRadius: "20px", fontSize: "0.7rem", fontWeight: 700,
+                  backgroundColor: item.sentiment === "positive" ? "#dcfce7" : item.sentiment === "negative" ? "#fee2e2" : "#f1f5f9",
+                  color: item.sentiment === "positive" ? "#166534" : item.sentiment === "negative" ? "#991b1b" : "#475569"
+                }}>
+                  {item.sentiment}
+                </span>
+              </div>
+
+              {/* Title links to detailed view */}
+              <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "var(--text-main)", flexGrow: 1 }}>
+                <h3 style={{ fontSize: "1.2rem", lineHeight: "1.5", margin: "0 0 20px 0", fontWeight: 700 }}>{item.title}</h3>
+              </a>
+
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "16px", marginTop: "auto" }}>
+                <a href={item.link} target="_blank" rel="noopener noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontWeight: 600, fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "5px" }}>
+                  Read Full Detail <span>→</span>
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
