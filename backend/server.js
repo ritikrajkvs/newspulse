@@ -11,21 +11,25 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/news", newsRoutes);
+
 app.get("/", (req, res) => {
   res.send("Backend is running");
 });
 
-// FIX: Wrap startup in an async function to await DB connection
+// FIX: Create an async start function
 const startServer = async () => {
   try {
-    await connectDB(); // Wait for DB to connect first
+    // 1. Connect to DB first
+    await connectDB();
     
-    app.listen(process.env.PORT || 5000, () =>
-      console.log("Server running on port " + (process.env.PORT || 5000))
-    );
+    // 2. Only start listening if DB connects
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    
   } catch (error) {
-    console.error("Failed to connect to the database:", error.message);
-    process.exit(1); // Stop the process if DB fails
+    console.error("CRITICAL ERROR: Could not connect to MongoDB.");
+    console.error(error.message);
+    process.exit(1); // Stop the app if DB fails
   }
 };
 
