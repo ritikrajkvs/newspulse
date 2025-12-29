@@ -1,18 +1,11 @@
-import axios from "axios";
-import * as cheerio from "cheerio";
-import News from "../models/news.model.js"; // Ensure .js is here for Render
+import News from "../models/news.model.js";
 import { analyzeSentiment } from "../utils/gemini.js";
-
-// Topic IDs for Tech and Business to ensure sentiment variety
-const TOPICS = [
-  "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB", // Tech
-  "CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZd0p6Z3pSbkp5ZVdReEVnUnBiU2dBUAFQAQ" // Business
-];
+import { scrapeNews as performScrape } from "../services/scraper.service.js";
 
 export const getNews = async (req, res) => {
   try {
     const { sentiment } = req.query;
-    const query = sentiment && sentiment !== "" ? { sentiment } : {};
+    const query = sentiment ? { sentiment } : {};
     const news = await News.find(query).sort({ createdAt: -1 }).limit(24);
     res.status(200).json(news);
   } catch (error) {
@@ -22,31 +15,36 @@ export const getNews = async (req, res) => {
 
 export const scrapeNews = async (req, res) => {
   try {
-    let allArticles = [];
-    for (const topicId of TOPICS) {
-      const { data } = await axios.get(`https://news.google.com/topics/${topicId}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0' }
-      });
-      const $ = cheerio.load(data);
-      $('article').slice(0, 6).each((i, el) => {
-        const title = $(el).find('h3').text();
-        let link = $(el).find('a').attr('href');
-        if (link?.startsWith('./')) link = "https://news.google.com" + link.substring(1);
-        if (title && link) allArticles.push({ title, link, source: "Google News" });
-      });
+    // Use the stable HackerNews scraper from your service
+    const articles = await performScrape(); 
+    
+    if (!articles || articles.length === 0) {
+      return res.status(404).json({ message: "No new articles found to scrape." });
     }
 
-    const savedCount = { positive: 0, negative: 0, neutral: 0 };
-    for (const article of allArticles) {
+    const savedArticles = [];
+
+    // Process articles in parallel to avoid timeouts
+    await Promise.all(articles.map(async (article) => {
       const exists = await News.findOne({ title: article.title });
       if (!exists) {
-        const sentiment = await analyzeSentiment(article.title); // AI Analysis
-        await News.create({ ...article, sentiment });
-        savedCount[sentiment]++;
+        const sentiment = await analyzeSentiment(article.title);
+        const newArticle = await News.create({
+          title: article.title,
+          link: article.url, // Ensure link mapping is correct
+          source: article.source,
+          sentiment: sentiment
+        });
+        savedArticles.push(newArticle);
       }
-    }
-    res.status(200).json({ message: "Scrape complete", added: savedCount });
+    }));
+
+    res.status(200).json({ 
+      message: "Scrape complete", 
+      added: savedArticles.length 
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Scrape Error:", error);
+    res.status(500).json({ error: "Failed to scrape news or analyze sentiment." });
   }
 };
