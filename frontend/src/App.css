@@ -1,55 +1,52 @@
 :root {
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-main: #f8fafc;
-  --bg-card: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
+  --primary: #4f46e5;
+  --bg-app: #fcfcfd;
+  --text-title: #0f172a;
+  --text-body: #475569;
+  --border: #f1f5f9;
+  --radius: 16px;
 }
 
 body {
-  margin: 0;
+  background-color: var(--bg-app);
+  color: var(--text-body);
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  -webkit-font-smoothing: antialiased;
+  margin: 0;
 }
 
-/* Glassmorphism Header */
-.sticky-header {
+.nav-blur {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
-  z-index: 50;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
-  padding: 1rem 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 
-/* Professional Card Hover */
 .news-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
+  border-radius: var(--radius);
+  padding: 24px;
   border: 1px solid var(--border);
+  transition: all 0.3s ease;
 }
 
 .news-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-  border-color: #cbd5e1;
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05);
+  border-color: #e2e8f0;
 }
 
-/* Custom Spinner */
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #f1f5f9;
-  border-top: 3px solid var(--primary);
+.pulse-loader {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  border: 3px solid var(--primary);
+  animation: pulse 1s infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
 }
