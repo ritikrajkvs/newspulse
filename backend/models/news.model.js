@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 const newsSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  description: { type: String },
   source: { type: String },
+  link: { type: String, unique: true },
   sentiment: { type: String, enum: ["positive", "neutral", "negative"] },
-  link: { type: String },
+  sentimentScore: { type: Number }, // Required for sorting
+  category: { type: String },       // Required for classification
   createdAt: { type: Date, default: Date.now }
 });
 
-const News = mongoose.model("News", newsSchema);
-export default News;
+export default mongoose.model("News", newsSchema);
