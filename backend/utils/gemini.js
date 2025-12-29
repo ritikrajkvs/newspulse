@@ -5,30 +5,27 @@ dotenv.config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-export const analyzeSentiment = async (text) => {
+export const analyzeSentimentAndCategory = async (text) => {
   try {
     const prompt = `
-      You are a sentiment analysis expert. Classify the impact of this news as "positive", "negative", or "neutral".
+      Analyze this news headline/description and return a JSON object.
       
-      Criteria:
-      - POSITIVE: Economic growth, breakthroughs, mergers, expansion, or optimistic events.
-      - NEGATIVE: Layoffs, crashes, deaths, scandals, conflicts, or losses.
-      - NEUTRAL: Routine reports, administrative changes, or facts with no clear impact.
+      Classification Rules:
+      1. Sentiment: "positive" (growth/success), "negative" (conflict/loss/scandal), or "neutral" (routine facts).
+      2. SentimentScore: A number from 1 to 10 (1 = extremely negative, 10 = extremely positive, 5 = neutral).
+      3. Category: One of [Technology, Business, Politics, Health, Science, Sports, General].
 
-      Article: "${text}"
-      
-      Return ONLY one word: positive, negative, or neutral.`;
+      Input: "${text}"
+
+      Return ONLY a valid JSON object like this:
+      {"sentiment": "negative", "sentimentScore": 2, "category": "Business"}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const resultText = response.text().toLowerCase().trim();
-    
-    // Logic Fix: Use regex word boundaries to prevent "not positive" matching "positive"
-    if (/\bpositive\b/.test(resultText)) return "positive";
-    if (/\bnegative\b/.test(resultText)) return "negative";
-    return "neutral";
+    const cleanJson = response.text().replace(/```json|```/g, "").trim();
+    return JSON.parse(cleanJson);
   } catch (error) {
-    console.error("Gemini Logic Error:", error.message);
-    return "neutral"; 
+    console.error("Analysis Logic Error:", error.message);
+    return { sentiment: "neutral", sentimentScore: 5, category: "General" };
   }
 };
