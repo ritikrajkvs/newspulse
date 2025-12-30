@@ -1,11 +1,14 @@
 import News from "../models/news.model.js";
-// FIX: Change analyzeSentiment to analyzeNews to match your utility file
 import { analyzeNews } from "../utils/gemini.js"; 
 import { scrapeNews as fetchFromAPI } from "../services/scraper.service.js";
 import pLimit from "p-limit"; 
 
-// Production-grade concurrency limit: Process 3 articles at a time to stay safe on Free Tier
-const limit = pLimit(3);
+// FIX 1: Set Concurrency to 1. 
+// We must process articles sequentially to respect the Free Tier limits.
+const limit = pLimit(1);
+
+// FIX 2: Helper function to create a pause
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const getNews = async (req, res) => {
   try {
@@ -14,7 +17,6 @@ export const getNews = async (req, res) => {
     if (sentiment && sentiment !== "") query.sentiment = sentiment;
     if (category && category !== "") query.category = category;
 
-    // Sort by latest and then by highest sentiment impact
     const news = await News.find(query).sort({ createdAt: -1, sentimentScore: -1 }).limit(30);
     res.status(200).json(news);
   } catch (error) {
@@ -26,7 +28,7 @@ export const scrapeNews = async (req, res) => {
   try {
     const rawArticles = await fetchFromAPI();
     
-    // 1. Efficient Deduplication: Check which links already exist in the DB
+    // Efficient Deduplication
     const existingLinks = await News.find({ 
       link: { $in: rawArticles.map(a => a.link) } 
     }).select('link');
@@ -38,10 +40,18 @@ export const scrapeNews = async (req, res) => {
       return res.status(200).json({ message: "No new articles to process.", added: 0 });
     }
 
-    // 2. Controlled Parallel Processing using p-limit
-    const processingTasks = newArticles.map((article) => limit(async () => {
+    console.log(`Processing ${newArticles.length} new articles... (Slow mode active to prevent 429 errors)`);
+
+    // 2. Controlled Sequential Processing
+    const processingTasks = newArticles.map((article, index) => limit(async () => {
       try {
-        // Use the renamed 'analyzeNews' function
+        // FIX 3: ADD DELAY
+        // Wait 4000ms (4 seconds) before every request.
+        // This ensures we never exceed ~15 requests per minute.
+        if (index > 0) {
+            await delay(4000); 
+        }
+
         const contextText = `${article.title}. ${article.description}`;
         const analysis = await analyzeNews(contextText); 
         
@@ -56,10 +66,10 @@ export const scrapeNews = async (req, res) => {
       }
     }));
 
-    // 3. Wait for all batches to finish and filter out failed ones
+    // 3. Wait for all
     const results = (await Promise.all(processingTasks)).filter(r => r !== null);
 
-    // 4. Bulk Insert for high performance
+    // 4. Bulk Insert
     if (results.length > 0) {
       await News.insertMany(results, { ordered: false });
     }
